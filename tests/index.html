@@ -1,0 +1,11 @@
+<html>
+<head>
+    <script src="../src/index.js"></script>
+    <script>
+        const es = new EventStream("https://ttv-live.herokuapp.com/streams/4353fea4-6750-11e9-9b2c-9ea5b28eef90/subscribe/sse");
+        es.on("shot", (attributes) => {
+          console.log("Shot", attributes);
+        })
+    </script>
+</head>
+</html>
