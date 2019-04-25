@@ -21,9 +21,8 @@ class EventStream
 
   relativeTime(time)
   {
-    console.log(this.currentState.period.time);
     return {
-      time: time,// - this.currentState.period.time,
+      time: time - this.currentState.period.time,
       period: this.currentState.period.period
     }
   }
