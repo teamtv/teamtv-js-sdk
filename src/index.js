@@ -7,6 +7,8 @@ class EventStream
     this.eventSource.addEventListener("StartPossession", this._wrapEventHandler(this._onStartPossession.bind(this)));
     this.eventSource.addEventListener("BallLoss", this._wrapEventHandler(this.onBallLoss.bind(this)));
     this.eventSource.addEventListener("Substitution", this._wrapEventHandler(this.onSubstitution.bind(this)));
+    this.eventSource.addEventListener("GoalCorrection", this._wrapEventHandler(this.onGoalCorrection.bind(this)));
+    this.eventSource.addEventListener("PenaltyGiven", this._wrapEventHandler(this.onPenaltyGiven.bind(this)));
     this.eventSource.addEventListener("EndPeriod", this._wrapEventHandler(this.onEndPeriod.bind(this)));
     this.eventSource.addEventListener("StartPeriod", this._wrapEventHandler(this.onStartPeriod.bind(this)));
 
@@ -93,9 +95,11 @@ class EventStream
       {
         time: this.relativeTime(time),
         id, description,
-        ...attributes
+        ...attributes,
+        possession: this.currentState.possession
       }
-    );  }
+    );
+  }
 
   onBallLoss({time, id, ballLossAttributes: attributes, description})
   {
@@ -104,9 +108,11 @@ class EventStream
       {
         time: this.relativeTime(time),
         id, description,
-        ...attributes
+        ...attributes,
+        possession: this.currentState.possession
       }
-    );  }
+    );
+  }
 
   onSubstitution({time, id, substitutionAttributes: attributes, description})
   {
@@ -115,7 +121,34 @@ class EventStream
       {
         time: this.relativeTime(time),
         id, description,
-        ...attributes
+        ...attributes,
+        possession: this.currentState.possession
+      }
+    );
+  }
+
+  onPenaltyGiven({time, id, penaltyGivenAttributes: attributes, description})
+  {
+    this._trigger(
+      "penaltyGiven",
+      {
+        time: this.relativeTime(time),
+        id, description,
+        ...attributes,
+        possession: this.currentState.possession
+      }
+    );
+  }
+
+  onGoalCorrection({time, id, goalCorrectionAttributes: attributes, description})
+  {
+    this._trigger(
+      "goalCorrection",
+      {
+        time: this.relativeTime(time),
+        id, description,
+        ...attributes,
+        possession: this.currentState.possession
       }
     );
   }
