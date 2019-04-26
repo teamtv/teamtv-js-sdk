@@ -3,12 +3,13 @@ class EventStream
   constructor(endpointUrl)
   {
     this.eventSource = new EventSource(endpointUrl);
-    this.eventSource.addEventListener("Shot", this._wrapEventHandler(this.onShot.bind(this)));
+    this.eventSource.addEventListener("Shot", this._createEventHandler("shot"));
+    this.eventSource.addEventListener("BallLoss", this._createEventHandler("ballLoss"));
+    this.eventSource.addEventListener("Substitution", this._createEventHandler("substitution"));
+    this.eventSource.addEventListener("GoalCorrection", this._createEventHandler("goalCorrection"));
+    this.eventSource.addEventListener("PenaltyGiven", this._createEventHandler("penaltyGiven"));
+
     this.eventSource.addEventListener("StartPossession", this._wrapEventHandler(this._onStartPossession.bind(this)));
-    this.eventSource.addEventListener("BallLoss", this._wrapEventHandler(this.onBallLoss.bind(this)));
-    this.eventSource.addEventListener("Substitution", this._wrapEventHandler(this.onSubstitution.bind(this)));
-    this.eventSource.addEventListener("GoalCorrection", this._wrapEventHandler(this.onGoalCorrection.bind(this)));
-    this.eventSource.addEventListener("PenaltyGiven", this._wrapEventHandler(this.onPenaltyGiven.bind(this)));
     this.eventSource.addEventListener("EndPeriod", this._wrapEventHandler(this.onEndPeriod.bind(this)));
     this.eventSource.addEventListener("StartPeriod", this._wrapEventHandler(this.onStartPeriod.bind(this)));
 
@@ -57,6 +58,23 @@ class EventStream
     };
   }
 
+  _createEventHandler(eventName)
+  {
+    return this._wrapEventHandler(
+      ({id, time, [`${eventName}Attributes`]: attributes, description}) => {
+        this._trigger(
+          eventName,
+          {
+            time: this.relativeTime(time),
+            id, description,
+            ...attributes,
+            possession: this.currentState.possession
+          }
+        );
+      }
+    );
+  }
+
   _endPossession(nextPossessionStartTime)
   {
     if (this.currentState.possession !== null)
@@ -84,72 +102,6 @@ class EventStream
     this._trigger(
       "startPossession",
       this.currentState.possession
-    );
-  }
-
-
-  onShot({time, id, shotAttributes: attributes, description})
-  {
-    this._trigger(
-      "shot",
-      {
-        time: this.relativeTime(time),
-        id, description,
-        ...attributes,
-        possession: this.currentState.possession
-      }
-    );
-  }
-
-  onBallLoss({time, id, ballLossAttributes: attributes, description})
-  {
-    this._trigger(
-      "ballLoss",
-      {
-        time: this.relativeTime(time),
-        id, description,
-        ...attributes,
-        possession: this.currentState.possession
-      }
-    );
-  }
-
-  onSubstitution({time, id, substitutionAttributes: attributes, description})
-  {
-    this._trigger(
-      "substitution",
-      {
-        time: this.relativeTime(time),
-        id, description,
-        ...attributes,
-        possession: this.currentState.possession
-      }
-    );
-  }
-
-  onPenaltyGiven({time, id, penaltyGivenAttributes: attributes, description})
-  {
-    this._trigger(
-      "penaltyGiven",
-      {
-        time: this.relativeTime(time),
-        id, description,
-        ...attributes,
-        possession: this.currentState.possession
-      }
-    );
-  }
-
-  onGoalCorrection({time, id, goalCorrectionAttributes: attributes, description})
-  {
-    this._trigger(
-      "goalCorrection",
-      {
-        time: this.relativeTime(time),
-        id, description,
-        ...attributes,
-        possession: this.currentState.possession
-      }
     );
   }
 
