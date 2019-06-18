@@ -1,0 +1,28 @@
+<html>
+<head>
+    <script src="../src/index.js"></script>
+    <script>
+      const es = new EventStream(
+        new PollingEventStreamSource("https://ttv-live.herokuapp.com/streams/9d4d3a52-91ca-11e9-a807-ce537ebf66e8/list")
+      );
+
+      /* events:
+       - shot
+       - ballLoss
+       - substitution
+       - penaltyGiven
+       - goalCorrection
+       - startPeriod
+       - endPeriod
+       - startPossession
+       - endPossession
+       */
+      es.on("shot", (attributes) => {
+        if (attributes.result === "GOAL") {
+          console.log("Shot", attributes);
+        }
+      });
+
+    </script>
+</head>
+</html>

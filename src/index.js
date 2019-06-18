@@ -1,17 +1,98 @@
-class EventStream
+class SSEEventStreamSource
 {
   constructor(endpointUrl)
   {
     this.eventSource = new EventSource(endpointUrl);
-    this.eventSource.addEventListener("Shot", this._createEventHandler("shot"));
-    this.eventSource.addEventListener("BallLoss", this._createEventHandler("ballLoss"));
-    this.eventSource.addEventListener("Substitution", this._createEventHandler("substitution"));
-    this.eventSource.addEventListener("GoalCorrection", this._createEventHandler("goalCorrection"));
-    this.eventSource.addEventListener("PenaltyGiven", this._createEventHandler("penaltyGiven"));
+  }
 
-    this.eventSource.addEventListener("StartPossession", this._wrapEventHandler(this._onStartPossession.bind(this)));
-    this.eventSource.addEventListener("EndPeriod", this._wrapEventHandler(this.onEndPeriod.bind(this)));
-    this.eventSource.addEventListener("StartPeriod", this._wrapEventHandler(this.onStartPeriod.bind(this)));
+  addEventListener(eventName, handler)
+  {
+    this.eventSource.addEventListener(eventName, handler);
+  }
+
+  stop() {
+    this.eventSource.close();
+  }
+}
+
+class PollingEventStreamSource
+{
+ constructor(endpointUrl)
+ {
+   this.endPointUrl = endpointUrl;
+   this.lastEventId = null;
+   this.eventHandlers = {};
+   this.start();
+ }
+
+ fetch() {
+   let url = this.endPointUrl;
+   if (this.lastEventId !== null) {
+     url += "?last-event-id=" + this.lastEventId;
+   }
+   const xmlHttp = new XMLHttpRequest();
+
+   xmlHttp.onload = () => {
+    const events = JSON.parse(xmlHttp.responseText);
+    this._processEvents(events);
+   };
+
+   xmlHttp.open( "GET", url, true );
+   // xmlHttp.setRequestHeader('Cache-Control', 'no-cache');
+   xmlHttp.send();
+ }
+
+ addEventListener(eventName, handler)
+ {
+   if (typeof this.eventHandlers[eventName] === "undefined") {
+     this.eventHandlers[eventName] = [];
+   }
+   this.eventHandlers[eventName].push(handler);
+ }
+
+ _processEvents(events)
+ {
+   for(const event of events)
+   {
+    if (typeof this.eventHandlers[event.event_name] !== "undefined") {
+      for(const eventHandler of this.eventHandlers[event.event_name]) {
+        eventHandler({
+          data: {
+            eventAttributes: event.event_attributes,
+            occurredOn: event.occured_on,
+            description: undefined
+          }
+        });
+      }
+    }
+    this.lastEventId = event.event_id;
+   }
+ }
+
+ start() {
+   this.fetch();
+   this._interval = setInterval(() => this.fetch(), 5000);
+ }
+
+ stop() {
+   clearInterval(this._interval);
+ }
+}
+
+class EventStream
+{
+  constructor(eventStreamSource)
+  {
+
+    eventStreamSource.addEventListener("Shot", this._createEventHandler("shot"));
+    eventStreamSource.addEventListener("BallLoss", this._createEventHandler("ballLoss"));
+    eventStreamSource.addEventListener("Substitution", this._createEventHandler("substitution"));
+    eventStreamSource.addEventListener("GoalCorrection", this._createEventHandler("goalCorrection"));
+    eventStreamSource.addEventListener("PenaltyGiven", this._createEventHandler("penaltyGiven"));
+
+    eventStreamSource.addEventListener("StartPossession", this._wrapEventHandler(this._onStartPossession.bind(this)));
+    eventStreamSource.addEventListener("EndPeriod", this._wrapEventHandler(this.onEndPeriod.bind(this)));
+    eventStreamSource.addEventListener("StartPeriod", this._wrapEventHandler(this.onStartPeriod.bind(this)));
 
 
     this.currentState = {
@@ -20,6 +101,12 @@ class EventStream
     };
 
     this._eventHandlers = {};
+
+    this.on('endPeriod', ({period}) => {
+      if (period == 2) {
+        eventStreamSource.stop();
+      }
+    });
   }
 
   relativeTime(time)
@@ -53,7 +140,7 @@ class EventStream
   _wrapEventHandler(fn)
   {
     return ({data}) => {
-      const {eventAttributes, description, occurredOn} = JSON.parse(data);
+      const {eventAttributes, description, occurredOn} = typeof data === "string" ? JSON.parse(data) : data;
       fn(eventAttributes, description, occurredOn);
     };
   }

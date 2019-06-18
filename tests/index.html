@@ -2,7 +2,9 @@
 <head>
     <script src="../src/index.js"></script>
     <script>
-        const es = new EventStream("https://ttv-live.herokuapp.com/streams/17845046-678f-11e9-96c5-8e04065ae5f4/subscribe/sse");
+        const es = new EventStream(
+          new SSEEventStreamSource("https://ttv-live.herokuapp.com/streams/cc5f6008-76e6-11e9-8840-76e3ec331d20/subscribe/sse")
+        );
 
         /* events:
             - shot
