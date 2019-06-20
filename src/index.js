@@ -103,7 +103,7 @@ class EventStream
     this._eventHandlers = {};
 
     this.on('endPeriod', ({period}) => {
-      if (period == 2) {
+      if (parseInt(period) === 2) {
         eventStreamSource.stop();
       }
     });
