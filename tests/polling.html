@@ -1,17 +1,20 @@
 <html>
 <head>
-    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.21.1/babel.min.js"></script>
+
     <script src="../src/index.js"></script>
     <script>
-      const es = new EventStream(
-        // OA
-        new PollingEventStreamSource("http://ttv-live.herokuapp.com/streams/80224262-92d1-11e9-b5a6-ae41a34a6715/list")
-        //        new SSEEventStreamSource("http://ttv-live.herokuapp.com/streams/80224262-92d1-11e9-b5a6-ae41a34a6715/subscribe/sse")
-
-//        new PollingEventStreamSource("http://ttv-live.herokuapp.com/streams/0f38d5b4-9364-11e9-8f15-22ba1e42e51c/list")
-//        new SSEEventStreamSource("http://ttv-live.herokuapp.com/streams/0f38d5b4-9364-11e9-8f15-22ba1e42e51c/subscribe/sse")
-
-      );
+//      const es = new EventStream(
+//        // OA
+//        new PollingEventStreamSource("http://ttv-live.herokuapp.com/streams/80224262-92d1-11e9-b5a6-ae41a34a6715/list")
+//        //        new SSEEventStreamSource("http://ttv-live.herokuapp.com/streams/80224262-92d1-11e9-b5a6-ae41a34a6715/subscribe/sse")
+//
+////        new PollingEventStreamSource("http://ttv-live.herokuapp.com/streams/0f38d5b4-9364-11e9-8f15-22ba1e42e51c/list")
+////        new SSEEventStreamSource("http://ttv-live.herokuapp.com/streams/0f38d5b4-9364-11e9-8f15-22ba1e42e51c/subscribe/sse")
+//
+//      );
 
       /* events:
        - shot
@@ -25,6 +28,25 @@
        - endPossession
        */
 
+
+const formatTime = function (sec) {
+  const sec_num = parseInt(sec, 10); // don't forget the second param
+//        let hours   = Math.floor(sec_num / 3600);
+  const hours = 0;
+  let minutes = Math.floor((sec_num - (hours * 3600)) / 60);
+  let seconds = sec_num - (hours * 3600) - (minutes * 60);
+
+//        if (hours   < 10) {hours   = "0"+hours;}
+  if (minutes < 10) {minutes = "0"+minutes;}
+  if (seconds < 10) {seconds = "0"+seconds;}
+  return minutes+':'+seconds;
+};
+
+
+    </script>
+
+    <script type="text/babel">
+
       class Team {
         constructor(id, name) {
           this.id = id;
@@ -36,31 +58,51 @@
         constructor(homeTeam, awayTeam) {
           this.homeTeam = homeTeam;
           this.awayTeam = awayTeam;
-          this.goals = [];
+          this.events = [];
         }
 
         addGoal(teamId, time, person, type) {
-            this.goals.push({teamId, time, person, type});
+          this.events.push({eventType: "goal", teamId, time, person, type});
+        }
+
+        addStartPeriod(period) {
+          this.events.push({eventType: "startPeriod", period});
+        }
+
+        addEndPeriod(period) {
+          this.events.push({eventType: "endPeriod", period});
         }
 
         getLog() {
-            const teamMap = {
-                [this.homeTeam.id]: this.homeTeam,
-                [this.awayTeam.id]: this.awayTeam
-            };
+          const teamMap = {
+            [this.homeTeam.id]: this.homeTeam,
+            [this.awayTeam.id]: this.awayTeam
+          };
 
-            const log = [];
-            const score = {home: 0, away: 0};
+          const log = [];
+          const score = {home: 0, away: 0};
 
-            for(const {teamId, time, person} of this.goals) {
+          for(const {eventType, ...rest} of this.events) {
+            switch (eventType)
+            {
+              case "startPeriod":
+              case "endPeriod":
+                const {period} = rest;
+                log.push({eventType, period});
+                break;
+              case "goal":
+                const {teamId, time, person} = rest;
                 if (this.homeTeam.id === teamId) {
                   score.home += 1;
                 } else {
                   score.away += 1;
                 }
-                log.push({score: Object.assign({}, score), team: teamMap[teamId], time, person})
+                log.push({eventType, score: Object.assign({}, score), team: teamMap[teamId], time, person});
+                break;
             }
-            return log;
+
+          }
+          return log;
         }
       }
       const debounce = (func, wait, immediate) => {
@@ -78,55 +120,78 @@
         };
       };
 
-      const formatTime = function (sec) {
-        const sec_num = parseInt(sec, 10); // don't forget the second param
-        let hours   = Math.floor(sec_num / 3600);
-        let minutes = Math.floor((sec_num - (hours * 3600)) / 60);
-        let seconds = sec_num - (hours * 3600) - (minutes * 60);
-
-        if (hours   < 10) {hours   = "0"+hours;}
-        if (minutes < 10) {minutes = "0"+minutes;}
-        if (seconds < 10) {seconds = "0"+seconds;}
-        return hours+':'+minutes+':'+seconds;
+      const Log = ({log}) => {
+        return (
+          <pre>
+            {log.map(({eventType, ...rest}, i) => {
+              switch (eventType)
+              {
+                case "startPeriod":
+                  return <div key={i}>Start {rest.period}</div>;
+                case "endPeriod":
+                  return <div key={i}>Start {rest.period}</div>;
+                case "goal":
+                  const {score, team, time: {time}, person} = rest;
+                  return <div key={i}>{score.home}-{score.away} {formatTime(time)} {person.firstName} {person.lastName} ({team.name})</div>;
+              }
+            })}
+          </pre>
+        );
       };
 
-      const show = debounce((stats) => {
-        const log = stats.getLog();
-        let period_ = "1";
-        const rows = [];
-        rows.push("Start 1st period");
-        for(const {score, team, time: {time, period}, person} of log) {
-          if (period !== period_) {
-            period_ = period;
-            rows.push("Start 2nd period");
-          }
-          rows.push(`${score.home} - ${score.away} ${formatTime(time)} ${person.firstName} ${person.lastName} (${team.name})`);
-        }
-        $('#report').html(rows.join("<br />"));
-      }, 10);
+      const StatsProvider = ({endpointUrl, children}) => {
+         const [log, setLog] = React.useState([]);
 
-      // OA
-      const stats = new Stats(
-        new Team('c8fd34ae-c3cb-11e8-9a9e-6c4008b541b8', 'Oost-Arnhem 1'),
-        new Team('6cf00a4a-c6bf-47cb-a33e-831992a224f5', 'Mid Fryslan 1')
+         const update = debounce((stats) => {
+           setLog(stats.getLog())
+         }, 10);
+
+         React.useEffect(() => {
+           const eventStreamSource = new PollingEventStreamSource(endpointUrl);
+           const eventStream = new EventStream(eventStreamSource);
+
+           // OA
+           const stats = new Stats(
+             new Team('c8fd34ae-c3cb-11e8-9a9e-6c4008b541b8', 'Oost-Arnhem 1'),
+             new Team('6cf00a4a-c6bf-47cb-a33e-831992a224f5', 'Mid Fryslan 1')
+           );
+
+           eventStream.on("shot", ({time, person, result, type, possession: {teamId}}) => {
+             if (result === "GOAL") {
+               stats.addGoal(teamId, time, person, type);
+             }
+             update(stats);
+           });
+           eventStream.on("startPeriod", ({period}) => {
+             stats.addStartPeriod(period);
+             update(stats);
+           });
+           eventStream.on("endPeriod", ({period}) => {
+             stats.addEndPeriod(period);
+             update(stats);
+           });
+
+           return () => {
+             eventStreamSource.stop();
+           }
+         }, [endpointUrl]);
+
+         return children({log});
+      };
+
+
+
+      ReactDOM.render(
+          <StatsProvider endpointUrl="https://ttv-live.herokuapp.com/streams/80224262-92d1-11e9-b5a6-ae41a34a6715/list">
+            {({log}) => {
+              return <Log log={log} />;
+            }}
+          </StatsProvider>,
+        document.getElementById('app')
       );
-
-      // RR
-//      const stats = new Stats(
-//        new Team('d2430e03-1084-4682-b988-f2bb76d92db2', 'RWA 1'),
-//        new Team('79a695e6-e070-11e8-8b7c-6c4008b541b8', 'Rust Roest 1')
-//      );
-
-      es.on("shot", ({time, person, result, type, possession: {teamId}}) => {
-        if (result === "GOAL") {
-          stats.addGoal(teamId, time, person, type);
-        }
-        show(stats);
-      });
-
     </script>
 </head>
 <body>
-    <pre id="report"></pre>
+    <div id="app"></div>
 </body>
 </html>
